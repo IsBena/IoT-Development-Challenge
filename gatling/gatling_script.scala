@@ -11,10 +11,11 @@ import java.util.{Locale, TimeZone}
 import java.util.Calendar
 import java.text.SimpleDateFormat
 
-
+import java.math._
 
 import java.util.UUID;
-
+import java.time._
+import java.time.format._
 
 import java.io._
 import org.apache.commons._
@@ -39,12 +40,16 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 
   class InjectionsAndVerifications extends Simulation {
 
-  	//enter the name of your team
+	val ip = "192.168.1.1"
+	//enter the name of your team
 	var teamName=""
 	//enter the members of the team
 	var teamMembers=""
 	//enter your location (Nantes, Paris, Brest etc...)
 	var teameLocation=""
+
+	//the leader board is up
+	val urlLeaderBoard="http://concoursiot.northeurope.cloudapp.azure.com/results"
 
 	//HTTP Protocol
 
@@ -52,23 +57,22 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 	val header = Map("Accept" -> "text/html; charset=UTF-8 ","Upgrade-Insecure-Requests" -> "1")
 
     //this is the adress of the http post the adress is your rasberry pi adress
-    var url="http://192.168.1.1/messages"
+    var url="http://" + ip + "/messages"
 
 
 	//the Date formatter who makes the date on the DateTime RFC3339
-	val formatter  = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSZ")
-		formatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+	val formatter  = DateTimeFormatter.ISO_INSTANT;
 	
 	//the simulation start in nano seconds
-	var simulationStartTime=0.0
+	var simulationStartTime: Long = 0
 	//the simulation start in milliseconds
-	var simulationStartTimeMs=0.0
+	var simulationStartTimeMs: Long = 0
 	//the simulation end in nano seconds
-	var simulationEndTime=0.0
+	var simulationEndTime: Long = 0
 	//start time for sending a package by sensor type
-	var startTimePackage=Array(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
+	var startTimePackage=Array[Long](0,0,0,0,0,0,0,0,0,0)
 	//end time for sending a package by sensortype
-	var endTimePackage=Array(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)
+	var endTimePackage=Array[Long](0,0,0,0,0,0,0,0,0,0)
 
 
 	/**
@@ -81,16 +85,14 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 	}
 
 	//this array contains the maximum value sent for each sensorType
-	var totalMaxValues = Array(0,0,0,0,0,0,0,0,0,0)
+	var totalMaxValues = Array[Long](0,0,0,0,0,0,0,0,0,0)
 	//this array contains the minimum value sent for each sensorType
-	var totalMinValues = Array(0,0,0,0,0,0,0,0,0,0)
+	var totalMinValues = Array[Long](0,0,0,0,0,0,0,0,0,0)
 	//this array contains the average of all the values sent to each sensorType
 	var totalSumValues = Array[scala.math.BigInt](BigInt(0),BigInt(0),BigInt(0),BigInt(0),BigInt(0),BigInt(0),BigInt(0),BigInt(0),BigInt(0),BigInt(0))
-	
-
 
 	// number of times generateNum was called (to track the first call of the function)
-	var counterNumberGenerator=Array(0,0,0,0,0,0,0,0,0,0)
+	var counterNumberGenerator=Array[Long](0,0,0,0,0,0,0,0,0,0)
 	/**
 	 *generates a random value and saves the minimum/maximum/sum globaly
 	 *@param the Index of the sensorType 
@@ -121,7 +123,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 
 
 	//this array contains the maximum value sent for each sensorType within a defined time
-	var partialMaxValue = Array(0,0,0,0,0,0,0,0,0,0)
+	var partialMaxValue = Array[Long](0,0,0,0,0,0,0,0,0,0)
 	//number of times max was called withing a defined time
 	var counterMax=Array(0,0,0,0,0,0,0,0,0,0)
 	/**
@@ -129,8 +131,8 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 	 *@param the value + the Index of the sensorType 
 	 *@return maximum
 	 */  
-	def maxNum(num:Int,sensorIndex:Int):Int={
-		var theMax=0
+	def maxNum(num:Long,sensorIndex:Int):Long={
+		var theMax: Long =0
 		if(counterMax(sensorIndex)==0){
 			theMax=num
 		}else{
@@ -146,7 +148,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 
 
 	//this array contains the minimum value sent for each sensorType within a defined time
-	var partialminValue = Array(0,0,0,0,0,0,0,0,0,0)
+	var partialminValue = Array[Long](0,0,0,0,0,0,0,0,0,0)
 	//number of times min was called withing a defined time
 	var counterMin=Array(0,0,0,0,0,0,0,0,0,0)
 	/**
@@ -154,8 +156,8 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 	 *@param the value + the Index of the sensorType 
 	 *@return minimum
 	 */ 
-	def minNum(num:Int,sensorIndex:Int):Int={
-		var theMin=0
+	def minNum(num:Long,sensorIndex:Int):Long={
+		var theMin: Long =0
 		if(counterMin(sensorIndex)==0){
 			theMin=num
 		}else{
@@ -179,11 +181,10 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 	 */ 
 	///json generator
 	def generateJson(sensorIndex:Int):String={
-		var timeNow=Calendar.getInstance().getTimeInMillis()
 		var number=generateNum(sensorIndex)
 
 		var jsonMsg="""{"id":""""+generateId()+"""",
-						"timestamp":""""+formatter.format(timeNow)+"""",
+						"timestamp":""""+formatter.format(Instant.now())+"""",
 						"sensorType":"""+(sensorIndex+1)+""",
 						"value":"""+number+""" }"""
 
@@ -287,11 +288,11 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 			//duration that took the package to send all the messages
 			duration(sensorIndex)=endTimePackage(sensorIndex)-startTimePackage(sensorIndex)
 			//Put parameters in session for next synthesis request
-			session.set("paramDuration", ""+(duration(sensorIndex)/1000).toInt).set("paramTimestamp", formatter.format(startTimePackage(sensorIndex)))
+			session.set("paramDuration", ""+(1 + duration(sensorIndex)/1000).toInt).set("paramTimestamp", formatter.format(Instant.ofEpochMilli(startTimePackage(sensorIndex))))
 			})
 			//call and get the synthesis corresponding to the duration and timestamp
 			.exec(http(synthesisResultsCheck(sensorIndex))
-					.get("http://192.168.1.1/messages/synthesis")
+					.get("http://" + ip + "/messages/synthesis")
 					.queryParam("duration", "${paramDuration}")
 					.queryParam("timestamp", "${paramTimestamp}")
   					.check(jsonPath("$..*").findAll.saveAs(SynthesisSensorNum(sensorIndex)))
@@ -299,11 +300,16 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 					.check(status.is(200)))
 			//check that the synthesis is correct
 			.exec(session => {
+					val localMin = new BigDecimal(partialminValue(sensorIndex)).stripTrailingZeros().toString();
+					val localMax = new BigDecimal(partialMaxValue(sensorIndex)).stripTrailingZeros().toString();
+					val localAvg = new BigDecimal(partialSumValue(sensorIndex).toString()).divide(BigDecimal.valueOf(msgPackage), 2, RoundingMode.HALF_DOWN).stripTrailingZeros().toString();
+
+					val remoteMin = new BigDecimal(session(SynthesisSensorNum(sensorIndex)).validate[Vector[Any]].get(getSynthesisResultIndex(sensorIndex,"minValue")).toString()).stripTrailingZeros().toString();
+					val remoteMax = new BigDecimal(session(SynthesisSensorNum(sensorIndex)).validate[Vector[Any]].get(getSynthesisResultIndex(sensorIndex,"maxValue")).toString()).stripTrailingZeros().toString();
+					val remoteAvg = new BigDecimal(session(SynthesisSensorNum(sensorIndex)).validate[Vector[Any]].get(getSynthesisResultIndex(sensorIndex,"mediumValue")).toString()).stripTrailingZeros().toString();
+
 					//test the synthesis against the stored values 
-						if((session(SynthesisSensorNum(sensorIndex)).validate[Vector[Any]].get(getSynthesisResultIndex(sensorIndex,"minValue")))==partialminValue(sensorIndex)
-							&& session(SynthesisSensorNum(sensorIndex)).validate[Vector[Any]].get(getSynthesisResultIndex(sensorIndex,"maxValue"))==partialMaxValue(sensorIndex)
-							&& session(SynthesisSensorNum(sensorIndex)).validate[Vector[Any]].get(getSynthesisResultIndex(sensorIndex,"mediumValue"))==(partialSumValue(sensorIndex)/msgPackage)){
-					
+					if(remoteMin==localMin && remoteMax==localMax && remoteAvg==localAvg){
 					//call counter max
 					 counterMax(sensorIndex)=0
 					//call counter min
@@ -311,6 +317,9 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 					 //initialise la somme
 					partialSumValue(sensorIndex)=BigInt(0)
 					}else{
+						println("invalid test " + sensorIndex + " min " + remoteMin + " == " + localMin)
+						println("invalid test " + sensorIndex + " max " + remoteMax + " == " + localMax)
+						println("invalid test " + sensorIndex + " avg " + remoteAvg + " == " + localAvg)
 						//exit if results are not valid
 						System.exit(1)
 					}
@@ -398,8 +407,8 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 		var resultatValid=true
 		
 		//this is the url of the synthesis get method that sends a synthesis object containing 10 sensor types results
-  		val urlSyhtesis = "http://192.168.1.1/messages/synthesis?timestamp="
-  						.concat(formatter.format(simulationStartTimeMs))
+  		val urlSyhtesis = "http://" + ip + "/messages/synthesis?timestamp="
+  						.concat(java.net.URLEncoder.encode(formatter.format(Instant.ofEpochMilli(simulationStartTimeMs))))
   						.concat("&duration=")
   						.concat(""+((timeOfSimulation/1000000000)+1).toInt)
   						
@@ -418,14 +427,21 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
   		
   		for( a <- 0 to 9){
 
-	 		if(show(SynthesisJson,a,"minValue")==totalMinValues(a) && 
-	 		   show(SynthesisJson,a,"maxValue")==totalMaxValues(a) && 
-	 		   show(SynthesisJson,a,"mediumValue")==(totalSumValues(a)/(msgPackage*numOfPackages)) ){
+					val remoteMin = new BigDecimal(show(SynthesisJson,a,"minValue").toString()).stripTrailingZeros().toString();
+					val localMin = new BigDecimal(totalMinValues(a)).stripTrailingZeros().toString();
+					val remoteMax = new BigDecimal(show(SynthesisJson,a,"maxValue").toString()).stripTrailingZeros().toString();
+					val localMax = new BigDecimal(totalMaxValues(a)).stripTrailingZeros().toString();
+					val remoteAvg = new BigDecimal(show(SynthesisJson,a,"mediumValue").toString()).stripTrailingZeros().toString();
+					val localAvg = new BigDecimal(totalSumValues(a).toString()).divide(BigDecimal.valueOf(msgPackage*numOfPackages), 2, RoundingMode.HALF_DOWN).stripTrailingZeros().toString();
 
-	 				println("les résultats du sensorType"+show(SynthesisJson,a,"sensorType")+"sont valides")
+	 		if(remoteMin==localMin && remoteMax==localMax && remoteAvg==localAvg ){
+	 				println("les résultats du sensorType "+show(SynthesisJson,a,"sensorType")+" sont valides")
 	 				
 	 		}else{
-	 				println("les résultats du sensorType"+show(SynthesisJson,a,"sensorType")+"ne sont pas valides!!!!")
+					println("invalid test " + a + " min " + show(SynthesisJson,a,"minValue") + " == " + totalMinValues(a))
+					println("invalid test " + a + " max " + show(SynthesisJson,a,"maxValue") + " == " + totalMaxValues(a))
+					println("invalid test " + a + " avg " + show(SynthesisJson,a,"mediumValue") + " == " + (totalSumValues(a)/(msgPackage*numOfPackages)))
+	 				println("les résultats du sensorType "+show(SynthesisJson,a,"sensorType")+" ne sont pas valides!!!!")
 	 				resultatValid=false
 
 	 		}
@@ -438,10 +454,6 @@ import org.apache.http.client.entity.UrlEncodedFormEntity
 			println("Temp d'execution:"+timeOfSimulation+" Equipe:"+teamName+"participant:"+teamMembers+" rattachement:"+teameLocation)
 
   			val password=scala.io.StdIn.readLine("entrez le mot de passe pour valider le résultat?: ")
-        	 	
-        	 	//the leader board is up
-        	 	val urlLeaderBoard="http://concoursiot.northeurope.cloudapp.azure.com/results"
-
         	 	val post = new HttpPost(urlLeaderBoard)
         		val client = HttpClientBuilder.create().build()
         		
